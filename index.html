@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analizador de Series — 3ª y 4ª Cifra</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#ffffff; --ink:#1a2233; --muted:#64718a;
+    --line:#e3e8f2; --accent:#3b5bdb; --accent-soft:#eef2ff;
+    --ok:#2f9e52; --ok-soft:#e6f6ec; --warn:#c77700; --warn-soft:#fdf3e2;
+    --hot:#d6336c; --hot-soft:#fde8ef; --pred:#6741d9; --pred-soft:#efe9fc;
+    --c1:#3b5bdb; --c2:#1098ad; --c3:#f08c00; --c4:#9c36b5;
+    --shadow:0 1px 3px rgba(20,30,60,.08),0 8px 24px rgba(20,30,60,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1117; --panel:#161b26; --ink:#e7ecf5; --muted:#9aa7bd;
+      --line:#262d3b; --accent:#5c7cfa; --accent-soft:#1a2238;
+      --ok:#51cf66; --ok-soft:#14281a; --warn:#ffa94d; --warn-soft:#2a1f10;
+      --hot:#ff6b9d; --hot-soft:#2a111c; --pred:#9775fa; --pred-soft:#1e1733;
+      --c1:#5c7cfa; --c2:#22b8cf; --c3:#ffa94d; --c4:#da77f2;
+      --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1117; --panel:#161b26; --ink:#e7ecf5; --muted:#9aa7bd;
+    --line:#262d3b; --accent:#5c7cfa; --accent-soft:#1a2238;
+    --ok:#51cf66; --ok-soft:#14281a; --warn:#ffa94d; --warn-soft:#2a1f10;
+    --hot:#ff6b9d; --hot-soft:#2a111c; --pred:#9775fa; --pred-soft:#1e1733;
+    --c1:#5c7cfa; --c2:#22b8cf; --c3:#ffa94d; --c4:#da77f2;
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 64px}
+  header.top{display:flex;align-items:flex-start;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  h1{font-size:22px;margin:0;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:8px 14px;border-radius:9px;font-size:13px;cursor:pointer;
+    font-weight:600;transition:all .15s;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.primary:hover{opacity:.9;color:#fff}
+  input[type=file]{display:none}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;padding:0 0 12px}
+  .tab{padding:8px 16px;border:none;background:transparent;color:var(--muted);cursor:pointer;
+    font-weight:600;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--muted);margin:0 0 14px}
+
+  .hero{background:linear-gradient(135deg,var(--pred-soft),var(--accent-soft));
+    border:1px solid var(--line)}
+  .hero-grid{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center}
+  @media(max-width:560px){.hero-grid{grid-template-columns:1fr;text-align:center}}
+  .big-digit{width:120px;height:120px;border-radius:24px;background:var(--pred);
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:64px;font-weight:800;box-shadow:0 8px 24px rgba(103,65,217,.35);margin:0 auto}
+  .hero-label{font-size:12px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--pred);font-weight:700}
+  .hero-base{color:var(--muted);font-size:13px;margin-top:6px}
+  .alt-digits{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{padding:5px 11px;border-radius:20px;background:var(--panel);
+    border:1px solid var(--line);font-size:13px;font-weight:600}
+  .chip b{color:var(--accent)}
+
+  .alert{display:flex;gap:12px;padding:12px 14px;border-radius:10px;margin-bottom:10px;
+    border:1px solid var(--line);font-size:14px;align-items:flex-start}
+  .alert:last-child{margin-bottom:0}
+  .alert .a-ico{font-size:18px;line-height:1.2}
+  .alert .a-body b{display:block;margin-bottom:2px}
+  .alert .a-body span{color:var(--muted);font-size:13px}
+  .alert.ok{background:var(--ok-soft);border-color:transparent}
+  .alert.warn{background:var(--warn-soft);border-color:transparent}
+  .alert.info{background:var(--hot-soft);border-color:transparent}
+  .alert.pred{background:var(--pred-soft);border-color:transparent}
+
+  .fbar{display:grid;grid-template-columns:200px 1fr 54px;gap:10px;align-items:center;
+    margin-bottom:9px;font-size:13px}
+  @media(max-width:560px){.fbar{grid-template-columns:130px 1fr 44px}}
+  .fbar .fname{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .track{height:20px;background:var(--bg);border-radius:6px;overflow:hidden;position:relative}
+  .fill{height:100%;border-radius:6px;transition:width .5s}
+  .fval{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+  .tl-row{display:grid;grid-template-columns:92px 44px 1fr;gap:10px;align-items:center;
+    padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .tl-row:last-child{border-bottom:none}
+  .tl-date{color:var(--muted);font-variant-numeric:tabular-nums}
+  .tl-e{width:30px;height:30px;border-radius:8px;background:var(--accent-soft);
+    color:var(--accent);display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px}
+  .tl-hits{display:flex;gap:5px;flex-wrap:wrap}
+  .tag{font-size:11px;padding:3px 8px;border-radius:14px;font-weight:700;color:#fff}
+  .tag.none{background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
+  .tag.F1{background:var(--c1)} .tag.F2{background:var(--c2)}
+  .tag.F3{background:var(--c3)} .tag.F4{background:var(--c4)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);text-transform:uppercase;font-size:10.5px;letter-spacing:.5px;
+    position:sticky;top:0;background:var(--panel)}
+  td.date{text-align:left;color:var(--muted);white-space:nowrap}
+  .hit{background:var(--ok);color:#fff;border-radius:5px;font-weight:700;
+    display:inline-block;min-width:22px;padding:2px 4px}
+  .tbl-scroll{max-height:440px;overflow:auto;border-radius:10px;border:1px solid var(--line)}
+  .muted{color:var(--muted)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+  .legend span{display:inline-flex;gap:5px;align-items:center}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}
+  .disc{font-size:11.5px;color:var(--muted);background:var(--warn-soft);
+    padding:10px 14px;border-radius:10px;margin-top:4px}
+  .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.sum-grid{grid-template-columns:1fr}}
+  .sum-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .sum-head{display:flex;align-items:center;gap:14px}
+  .sum-digit{width:72px;height:72px;border-radius:16px;background:var(--pred);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;flex:none}
+  .sum-box.e .sum-digit{background:var(--accent)}
+  .sum-title{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700}
+  .sum-sub{font-size:13px;color:var(--muted)}
+  .rank{width:100%;margin-top:12px;font-size:13px}
+  .rank td{text-align:left;padding:6px 6px}
+  .rank td.n{width:28px;color:var(--muted);font-weight:700}
+  .rank td.d{width:40px;font-size:18px;font-weight:800}
+  .rank td.s{width:60px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .combo{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .combo .pill{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:20px;font-weight:800;
+    letter-spacing:4px;color:var(--ink);background:var(--bg);border:1px solid var(--line);
+    padding:6px 12px;border-radius:10px}
+  .filename{font-size:12px;color:var(--muted)}
+  .content-tab{display:none}
+  .content-tab.active{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>🎯 Analizador de Series — 3ª y 4ª Cifra</h1>
+      <div class="sub" id="sub">Cargando…</div>
+      <div class="filename" id="fname">Datos de ejemplo: Dorado Tarde (100 sorteos)</div>
+    </div>
+    <div class="toolbar">
+      <label class="btn primary">⬆️ Cargar Excel
+        <input type="file" id="file" accept=".xlsx,.xls,.csv">
+      </label>
+      <button class="btn" id="theme">🌓 Tema</button>
+    </div>
+  </header>
+
+  <!-- RESUMEN COMBINADO 3ª + 4ª -->
+  <div class="card hero">
+    <h2>Resultado próximo sorteo · 3ª y 4ª cifra</h2>
+    <div class="sum-grid">
+      <div class="sum-box d">
+        <div class="sum-head">
+          <div class="sum-digit" id="sumDig3">?</div>
+          <div><div class="sum-title">3ª cifra (D)</div><div class="sum-sub" id="sumSub3">—</div></div>
+        </div>
+        <table class="rank" id="sumRank3"></table>
+      </div>
+      <div class="sum-box e">
+        <div class="sum-head">
+          <div class="sum-digit" id="sumDig4">?</div>
+          <div><div class="sum-title">4ª cifra (E)</div><div class="sum-sub" id="sumSub4">—</div></div>
+        </div>
+        <table class="rank" id="sumRank4"></table>
+      </div>
+    </div>
+    <div class="combo">Combinación sugerida (1ª y 2ª libres):
+      <span class="pill" id="comboMain">_ _ ? ?</span>
+      <span id="comboAlt"></span>
+    </div>
+    <div class="hero-base" id="sumBase">—</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" data-tab="tab3">3ª Cifra (D)</button>
+    <button class="tab" data-tab="tab4">4ª Cifra (E)</button>
+  </div>
+
+  <!-- TAB 3ª CIFRA -->
+  <div id="tab3" class="content-tab active">
+    <div class="card hero">
+      <div class="hero-grid">
+        <div class="big-digit" id="bigDigit3">?</div>
+        <div>
+          <div class="hero-label">Predicción · próximo sorteo</div>
+          <div style="font-size:16px;font-weight:700;margin-top:4px" id="predLead3">—</div>
+          <div class="hero-base" id="predBase3">—</div>
+          <div class="alt-digits" id="altDigits3"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Alertas</h2>
+      <div id="alerts3"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="midGrid3">
+      <div class="card">
+        <h2>Tasa de acierto por fórmula</h2>
+        <div id="fbars3"></div>
+      </div>
+      <div class="card">
+        <h2>Actividad reciente</h2>
+        <div id="timeline3"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--c1)"></i>F1 Horiz.Suma</span>
+          <span><i class="dot" style="background:var(--c2)"></i>F2 Horiz.Mult</span>
+          <span><i class="dot" style="background:var(--c3)"></i>F3 Vert.D</span>
+          <span><i class="dot" style="background:var(--c4)"></i>F4 Vert.B</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Histórico completo (coincidencias por fórmula)</h2>
+      <div class="tbl-scroll"><table id="histTable3"></table></div>
+    </div>
+  </div>
+
+  <!-- TAB 4ª CIFRA -->
+  <div id="tab4" class="content-tab">
+    <div class="card hero">
+      <div class="hero-grid">
+        <div class="big-digit" id="bigDigit4">?</div>
+        <div>
+          <div class="hero-label">Predicción · próximo sorteo</div>
+          <div style="font-size:16px;font-weight:700;margin-top:4px" id="predLead4">—</div>
+          <div class="hero-base" id="predBase4">—</div>
+          <div class="alt-digits" id="altDigits4"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Alertas</h2>
+      <div id="alerts4"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="midGrid4">
+      <div class="card">
+        <h2>Tasa de acierto por fórmula</h2>
+        <div id="fbars4"></div>
+      </div>
+      <div class="card">
+        <h2>Actividad reciente</h2>
+        <div id="timeline4"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--c1)"></i>F1 Horiz.Suma</span>
+          <span><i class="dot" style="background:var(--c2)"></i>F2 Horiz.Mult</span>
+          <span><i class="dot" style="background:var(--c3)"></i>F3 Vert.E</span>
+          <span><i class="dot" style="background:var(--c4)"></i>F4 Vert.B</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Histórico completo (coincidencias por fórmula)</h2>
+      <div class="tbl-scroll"><table id="histTable4"></table></div>
+    </div>
+  </div>
+
+  <div class="disc">⚠️ Herramienta de análisis estadístico de patrones. Los resultados de lotería son
+    aleatorios; ninguna fórmula garantiza aciertos. Úsala con fines de estudio y entretenimiento.</div>
+
+  <footer>Analizador de Series · 4 fórmulas · 2 cifras (3ª y 4ª) · procesa cualquier lotería de 4 cifras</footer>
+</div>
+
+<script>
+// ===== DATOS EMBEBIDOS =====
+const DRAWS_DEFAULT = [["10/10/2026",7,1,0,2],["09/10/2026",0,4,5,7],["08/10/2026",1,8,8,8],["07/10/2026",8,0,3,3],["06/10/2026",5,2,0,9],["05/10/2026",5,7,3,8],["03/10/2026",5,8,7,5],["02/10/2026",7,7,7,3],["01/10/2026",7,4,6,8],["30/09/2026",9,7,0,5],["29/09/2026",6,5,4,8],["28/09/2026",4,1,5,9],["26/09/2026",8,4,2,4],["25/09/2026",4,0,1,5],["24/09/2026",7,7,7,4],["23/09/2026",8,9,3,5],["22/09/2026",3,6,0,3],["21/09/2026",2,5,5,1],["19/09/2026",4,0,1,2],["18/09/2026",6,3,9,8],["17/09/2026",9,7,7,4],["16/09/2026",4,7,2,9],["15/09/2026",7,2,4,2],["14/09/2026",8,7,6,2],["12/09/2026",5,5,6,2],["11/09/2026",4,3,1,8],["10/09/2026",4,7,5,8],["09/09/2026",0,1,9,0],["08/09/2026",4,2,9,5],["07/09/2026",0,5,7,0],["05/09/2026",2,5,8,1],["04/09/2026",3,4,4,4],["03/09/2026",4,8,5,9],["02/09/2026",0,8,0,2],["01/09/2026",2,8,5,9],["31/08/2026",9,2,2,0],["29/08/2026",6,9,8,8],["28/08/2026",0,8,8,9],["27/08/2026",0,5,5,2],["26/08/2026",4,7,9,9],["25/08/2026",4,7,7,2],["24/08/2026",4,1,0,1],["22/08/2026",1,1,1,0],["21/08/2026",8,4,7,9],["20/08/2026",1,8,4,2],["19/08/2026",7,2,6,1],["18/08/2026",0,6,8,3],["15/08/2026",6,9,8,4],["14/08/2026",6,0,9,3],["13/08/2026",8,2,8,1],["12/08/2026",1,9,4,8],["11/08/2026",6,1,4,9],["10/08/2026",4,8,8,3],["08/08/2026",4,2,6,3],["07/08/2026",4,5,2,2],["06/08/2026",7,2,1,5],["05/08/2026",9,6,0,8],["04/08/2026",9,5,2,6],["03/08/2026",9,7,8,1],["01/08/2026",4,1,5,4],["31/07/2026",8,3,5,2],["30/07/2026",2,6,6,7],["29/07/2026",6,6,8,5],["28/07/2026",7,2,1,4],["27/07/2026",7,9,3,1],["25/07/2026",8,2,1,5],["24/07/2026",1,7,7,8],["23/07/2026",0,7,1,4],["22/07/2026",0,4,2,8],["21/07/2026",8,4,7,8],["20/07/2026",2,3,3,2],["18/07/2026",7,5,0,3],["17/07/2026",4,7,2,5],["16/07/2026",9,9,7,3],["15/07/2026",6,4,0,6],["14/07/2026",0,4,6,5],["11/07/2026",4,3,2,7],["10/07/2026",0,5,9,1],["09/07/2026",4,2,6,0],["08/07/2026",8,0,6,3],["07/07/2026",2,1,9,9],["06/07/2026",2,9,1,0],["04/07/2026",7,2,5,2],["03/07/2026",8,6,0,9],["02/07/2026",8,7,4,2],["01/07/2026",5,0,7,2],["30/06/2026",5,2,0,6],["27/06/2026",4,4,0,7],["26/06/2026",3,4,8,5],["25/06/2026",7,4,9,4],["24/06/2026",8,2,8,1],["23/06/2026",5,7,0,8],["22/06/2026",6,6,6,6],["20/06/2026",8,8,9,4],["19/06/2026",3,6,7,5],["18/06/2026",8,6,4,3],["17/06/2026",5,1,2,6],["16/06/2026",0,0,7,3],["13/06/2026",2,0,9,9],["12/06/2026",8,8,3,5]];
+
+const FDEF = {
+  "F1-izq":{n:"F1 Horizontal Suma Izq",g:"F1"},
+  "F1-der":{n:"F1 Horizontal Suma Der",g:"F1"},
+  "F2-izq":{n:"F2 Horizontal Mult Izq",g:"F2"},
+  "F2-der":{n:"F2 Horizontal Mult Der",g:"F2"},
+  "F3-suma":{n:"F3 Vertical Suma",g:"F3"},
+  "F3-mult":{n:"F3 Vertical Mult",g:"F3"},
+  "F4-suma":{n:"F4 Vertical B Suma",g:"F4"},
+  "F4-mult":{n:"F4 Vertical B Mult",g:"F4"}
+};
+const FKEYS = Object.keys(FDEF);
+
+// Candidatos genéricos para cualquier cifra objetivo
+function candidatos(r1, r2, colObjetivo=4){
+  const [B1,C1,D1,E1]=r1;
+  const o={};
+  o["F1-izq"]={v:(B1+C1)%10,t:`${B1}+${C1}=${(B1+C1)%10}`};
+  o["F1-der"]={v:(D1+E1)%10,t:`${D1}+${E1}=${(D1+E1)%10}`};
+  o["F2-izq"]={v:(B1*C1)%10,t:`${B1}×${C1}=${(B1*C1)%10}`};
+  o["F2-der"]={v:(D1*E1)%10,t:`${D1}×${E1}=${(D1*E1)%10}`};
+  if(r2){
+    const [B2,C2,D2,E2]=r2;
+    const col1=colObjetivo===3?D1:E1;
+    const col2=colObjetivo===3?D2:E2;
+    o["F3-suma"]={v:(col1+col2)%10,t:`${col1}+${col2}=${(col1+col2)%10}`};
+    o["F3-mult"]={v:(col1*col2)%10,t:`${col1}×${col2}=${(col1*col2)%10}`};
+    o["F4-suma"]={v:(B1+B2)%10,t:`${B1}+${B2}=${(B1+B2)%10}`};
+    o["F4-mult"]={v:(B1*B2)%10,t:`${B1}×${B2}=${(B1*B2)%10}`};
+  } else {
+    ["F3-suma","F3-mult","F4-suma","F4-mult"].forEach(k=>o[k]={v:null,t:"-"});
+  }
+  return o;
+}
+
+function analizar(draws, colObjetivo=4){
+  const n=draws.length, reg=[];
+  for(let i=0;i<n;i++){
+    const d=draws[i], cifraReal=d[colObjetivo];
+    const r1=(i+1<n)?draws[i+1].slice(1):null;
+    const r2=(i+2<n)?draws[i+2].slice(1):null;
+    const rec={fecha:d[0],cifras:d.slice(1),cifraReal,cand:{},hits:[]};
+    if(r1){
+      const c=candidatos(r1,r2,colObjetivo);
+      FKEYS.forEach(k=>{
+        rec.cand[k]=c[k];
+        rec.cand[k].ok=(c[k].v!==null && c[k].v===cifraReal);
+        if(rec.cand[k].ok) rec.hits.push(k);
+      });
+    }
+    reg.push(rec);
+  }
+  return reg;
+}
+
+function stats(reg){
+  const s={}; FKEYS.forEach(k=>s[k]={a:0,e:0});
+  reg.forEach(r=>FKEYS.forEach(k=>{
+    if(r.cand[k]&&r.cand[k].v!==null){s[k].e++; if(r.cand[k].ok)s[k].a++;}
+  }));
+  FKEYS.forEach(k=>s[k].tasa=s[k].e?+(100*s[k].a/s[k].e).toFixed(1):0);
+  return s;
+}
+
+function reciente(reg,w=10){
+  const r=reg.slice(0,w), conteo={}; FKEYS.forEach(k=>conteo[k]=0);
+  r.forEach(x=>x.hits.forEach(k=>conteo[k]++));
+  let caliente=null,mx=-1;
+  FKEYS.forEach(k=>{if(conteo[k]>mx){mx=conteo[k];caliente=k;}});
+  if(mx<=0)caliente=null;
+  return {rows:r,conteo,caliente};
+}
+
+function predecir(draws,s,rec,colObjetivo=4){
+  if(draws.length<2)return null;
+  const r1=draws[0].slice(1), r2=draws[1].slice(1);
+  const c=candidatos(r1,r2,colObjetivo);
+  const mxRec=Math.max(1,...Object.values(rec.conteo));
+  const preds=[];
+  FKEYS.forEach(k=>{
+    if(c[k].v===null)return;
+    const mom=(rec.conteo[k]/mxRec)*100;
+    const score=+(0.6*s[k].tasa+0.4*mom).toFixed(1);
+    preds.push({k,nombre:FDEF[k].n,g:FDEF[k].g,dig:c[k].v,calc:c[k].t,
+      tasa:s[k].tasa,hits:rec.conteo[k],score});
+  });
+  preds.sort((a,b)=>b.score-a.score);
+  const byDig={};
+  preds.forEach(p=>{
+    if(!byDig[p.dig])byDig[p.dig]={dig:p.dig,fs:[],score:0};
+    byDig[p.dig].fs.push(p.k); byDig[p.dig].score+=p.score;
+  });
+  const rankDig=Object.values(byDig).sort((a,b)=>b.score-a.score);
+  return {fechaBase:draws[0][0],cifrasBase:r1,preds,rankDig};
+}
+
+function alertas(s,rec,pred,cifraLabel){
+  const A=[];
+  if(rec.caliente){
+    A.push({lvl:"info",ico:"🔥",t:"Fórmula más activa",
+      m:`${FDEF[rec.caliente].n} coincidió ${rec.conteo[rec.caliente]} veces en los últimos ${rec.rows.length} sorteos.`});
+  }
+  if(rec.rows.length){
+    const last=rec.rows[0];
+    if(last.hits.length){
+      A.push({lvl:"ok",ico:"✅",t:"Último sorteo cumplió fórmula",
+        m:`${last.fecha} (${cifraLabel}=${last.cifraReal}) coincidió con: ${last.hits.map(k=>FDEF[k].n).join(", ")}.`});
+    } else {
+      A.push({lvl:"warn",ico:"⚠️",t:"Último sorteo sin coincidencia",
+        m:`${last.fecha} (${cifraLabel}=${last.cifraReal}) no coincidió con ninguna fórmula.`});
+    }
+  }
+  if(pred&&pred.rankDig.length){
+    const td=pred.rankDig[0], tp=pred.preds[0];
+    A.push({lvl:"pred",ico:"🎯",t:`PRÓXIMO RESULTADO — ${cifraLabel} cifra probable`,
+      m:`Dígito más probable: ${td.dig} (apoyado por ${td.fs.length} fórmula(s)). Líder: ${tp.nombre} → ${tp.dig} (${tp.calc}), score ${tp.score}.`});
+  }
+  return A;
+}
+
+// ===== RENDER =====
+function renderTab(draws, tabId, cifraLabel, colObjetivo){
+  const REG=analizar(draws,colObjetivo);
+  const S=stats(REG);
+  const REC=reciente(REG,10);
+  const PRED=predecir(draws,S,REC,colObjetivo);
+  const AL=alertas(S,REC,PRED,cifraLabel);
+
+  // hero
+  if(PRED){
+    const td=PRED.rankDig[0], tp=PRED.preds[0];
+    document.getElementById("bigDigit"+tabId).textContent=td.dig;
+    document.getElementById("predLead"+tabId).textContent=`Fórmula líder: ${tp.nombre}`;
+    document.getElementById("predBase"+tabId).textContent=
+      `Base: sorteo ${PRED.fechaBase} = [${PRED.cifrasBase.join(", ")}] · cálculo ${tp.calc}`;
+    const alt=document.getElementById("altDigits"+tabId); alt.innerHTML="";
+    PRED.rankDig.slice(0,5).forEach(d=>{
+      const c=document.createElement("span"); c.className="chip";
+      c.innerHTML=`Dígito <b>${d.dig}</b> · ${d.fs.length} fórm · score ${d.score.toFixed(0)}`;
+      alt.appendChild(c);
+    });
+  }
+
+  // alerts
+  const ah=document.getElementById("alerts"+tabId); ah.innerHTML="";
+  AL.forEach(a=>{
+    const d=document.createElement("div"); d.className="alert "+a.lvl;
+    d.innerHTML=`<div class="a-ico">${a.ico}</div><div class="a-body"><b>${a.t}</b><span>${a.m}</span></div>`;
+    ah.appendChild(d);
+  });
+
+  // formula bars
+  const fb=document.getElementById("fbars"+tabId); fb.innerHTML="";
+  const colors={F1:"var(--c1)",F2:"var(--c2)",F3:"var(--c3)",F4:"var(--c4)"};
+  const maxT=Math.max(...FKEYS.map(k=>S[k].tasa),1);
+  FKEYS.slice().sort((a,b)=>S[b].tasa-S[a].tasa).forEach(k=>{
+    const row=document.createElement("div"); row.className="fbar";
+    row.innerHTML=`<div class="fname" title="${FDEF[k].n}">${FDEF[k].n}</div>
+      <div class="track"><div class="fill" style="width:${(S[k].tasa/maxT*100)}%;background:${colors[FDEF[k].g]}"></div></div>
+      <div class="fval">${S[k].tasa}%</div>`;
+    fb.appendChild(row);
+  });
+
+  // timeline
+  const tl=document.getElementById("timeline"+tabId); tl.innerHTML="";
+  REC.rows.forEach(r=>{
+    const row=document.createElement("div"); row.className="tl-row";
+    let tags="";
+    if(r.hits.length) tags=r.hits.map(k=>`<span class="tag ${FDEF[k].g}">${k}</span>`).join("");
+    else tags=`<span class="tag none">sin coincidencia</span>`;
+    row.innerHTML=`<div class="tl-date">${r.fecha}</div>
+      <div class="tl-e">${r.cifraReal}</div><div class="tl-hits">${tags}</div>`;
+    tl.appendChild(row);
+  });
+
+  // history table
+  const t=document.getElementById("histTable"+tabId);
+  let head=`<thead><tr><th>Fecha</th><th>Cifras</th><th>${cifraLabel}</th>`;
+  FKEYS.forEach(k=>head+=`<th>${k}</th>`); head+=`</tr></thead><tbody>`;
+  let body="";
+  REG.forEach(r=>{
+    body+=`<tr><td class="date">${r.fecha}</td>
+      <td class="muted">${r.cifras.slice(0,3).join(" ")}</td>
+      <td><b>${r.cifraReal}</b></td>`;
+    FKEYS.forEach(k=>{
+      const c=r.cand[k];
+      if(!c||c.v===null){body+=`<td class="muted">-</td>`;}
+      else if(c.ok){body+=`<td><span class="hit">${c.v}</span></td>`;}
+      else{body+=`<td class="muted">${c.v}</td>`;}
+    });
+    body+=`</tr>`;
+  });
+  t.innerHTML=head+body+`</tbody>`;
+  return {PRED,S};
+}
+
+function renderSummary(r3,r4){
+  const fill=(id,res)=>{
+    const P=res.PRED;
+    if(!P)return;
+    const top=P.rankDig[0];
+    document.getElementById("sumDig"+id).textContent=top.dig;
+    document.getElementById("sumSub"+id).textContent=`Apoyado por ${top.fs.length} fórmula(s) · score ${top.score.toFixed(1)}`;
+    let h="";
+    P.rankDig.slice(0,3).forEach((d,i)=>{
+      h+=`<tr><td class="n">${i+1}º</td><td class="d">${d.dig}</td>
+        <td>${d.fs.map(k=>`<span class="tag ${FDEF[k].g}">${k}</span>`).join(" ")}</td>
+        <td class="s">${d.score.toFixed(1)}</td></tr>`;
+    });
+    document.getElementById("sumRank"+id).innerHTML=h;
+  };
+  fill("3",r3); fill("4",r4);
+  if(r3.PRED&&r4.PRED){
+    const a=r3.PRED.rankDig, b=r4.PRED.rankDig;
+    document.getElementById("comboMain").textContent=`_ _ ${a[0].dig} ${b[0].dig}`;
+    const alts=[];
+    if(a[1]) alts.push(`${a[1].dig}${b[0].dig}`);
+    if(b[1]) alts.push(`${a[0].dig}${b[1].dig}`);
+    if(a[1]&&b[1]) alts.push(`${a[1].dig}${b[1].dig}`);
+    document.getElementById("comboAlt").textContent=alts.length?`Alternativas (3ª4ª): ${alts.join(" · ")}`:"";
+    const P=r3.PRED;
+    document.getElementById("sumBase").textContent=
+      `Calculado con el último sorteo ${P.fechaBase} = [${P.cifrasBase.join("-")}] y el anterior. Score = 60% tasa histórica + 40% aciertos recientes (últimos 10).`;
+  }
+}
+
+function run(draws){
+  document.getElementById("sub").textContent=
+    `${draws.length} sorteos · más reciente ${draws[0][0]}`;
+  const r3=renderTab(draws, "3", "3ª", 3);
+  const r4=renderTab(draws, "4", "4ª", 4);
+  renderSummary(r3,r4);
+
+  // responsive
+  fixGrid();
+}
+
+function fixGrid(){
+  ["midGrid3","midGrid4"].forEach(id=>{
+    document.getElementById(id).style.gridTemplateColumns=
+      window.innerWidth<720?"1fr":"1fr 1fr";
+  });
+}
+
+// ===== TAB SWITCHING =====
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const tabId=btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".content-tab").forEach(t=>t.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(tabId).classList.add("active");
+  });
+});
+
+// ===== FILE UPLOAD =====
+function toDateStr(v){
+  if(v instanceof Date && !isNaN(v)){
+    const d=String(v.getDate()).padStart(2,"0"), m=String(v.getMonth()+1).padStart(2,"0");
+    return `${d}/${m}/${v.getFullYear()}`;
+  }
+  if(typeof v==="number" && v>20000 && v<80000){ // serial de Excel
+    const dt=new Date(Math.round((v-25569)*86400000));
+    const d=String(dt.getUTCDate()).padStart(2,"0"), m=String(dt.getUTCMonth()+1).padStart(2,"0");
+    return `${d}/${m}/${dt.getUTCFullYear()}`;
+  }
+  return String(v).trim();
+}
+function dateKey(s){ // dd/mm/yyyy -> número ordenable
+  const m=String(s).match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){let y=+m[3]; if(y<100)y+=2000; return y*10000+(+m[2])*100+(+m[1]);}
+  const m2=String(s).match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if(m2) return (+m2[1])*10000+(+m2[2])*100+(+m2[3]);
+  return null;
+}
+function isDigit(x){
+  if(x===undefined||x===null||x==="")return false;
+  const n=Number(String(x).trim());
+  return Number.isInteger(n)&&n>=0&&n<=9;
+}
+function parseRows(rows){
+  const draws=[];
+  rows.forEach(r=>{
+    if(!r||r.length<5)return;
+    const v=[r[1],r[2],r[3],r[4]];
+    if(r[0]===undefined||r[0]===null||r[0]==="")return;
+    if(!v.every(isDigit))return; // salta encabezados, vacíos y recortes
+    draws.push([toDateStr(r[0]),...v.map(x=>Number(String(x).trim()))]);
+  });
+  return draws;
+}
+document.getElementById("file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:"array",cellDates:true});
+      // usa la hoja con más filas válidas
+      let best=[],bestName="";
+      wb.SheetNames.forEach(n=>{
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:""});
+        const d=parseRows(rows);
+        if(d.length>best.length){best=d;bestName=n;}
+      });
+      if(best.length<3){alert("No se encontraron suficientes filas válidas.\nEstructura esperada: Fecha | 1ª cifra | 2ª cifra | 3ª cifra | 4ª cifra (dígitos 0-9).");return;}
+      // ordenar: más reciente arriba (si las fechas se pueden leer)
+      if(best.every(d=>dateKey(d[0])!==null)){
+        best.sort((a,b)=>dateKey(b[0])-dateKey(a[0]));
+      }
+      document.getElementById("fname").textContent=`Archivo: ${f.name} · hoja "${bestName}"`;
+      run(best);
+    }catch(err){alert("Error leyendo el archivo: "+err.message);}
+  };
+  rd.readAsArrayBuffer(f);
+  e.target.value="";
+});
+
+// theme toggle
+document.getElementById("theme").addEventListener("click",()=>{
+  const r=document.documentElement;
+  const cur=r.getAttribute("data-theme");
+  const next=cur==="dark"?"light":(cur==="light"?"dark":"dark");
+  r.setAttribute("data-theme",next);
+  try{localStorage.setItem("tema",next);}catch(e){}
+});
+try{const t=localStorage.getItem("tema"); if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}
+
+window.addEventListener("resize",fixGrid);
+run(DRAWS_DEFAULT);
+</script>
+</body>
+</html>
